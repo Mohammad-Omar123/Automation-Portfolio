@@ -1,0 +1,8 @@
+Zap # 2
+
+DESCRIPTION
+-Whenever someone fills out a specific Google Form, by the user, it sends a Gmail to the user
+- In the Gmail, it provides the name and email of the person, they provided in the form
+
+OUTCOMES
+-Automates the process by extracting the useful data about a response, without having to check the Google Forms responses
