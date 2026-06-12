@@ -1,1 +1,29 @@
 
+
+
+
+DESCRIPTION
+- Create a simple zap, linking a Gmail account to a Google Sheets document
+-It checks incoming emails for the trigger word “Congratulations”
+- If an email contains that word, the zap would extract the sender’s email address and store it in a Google Sheets document
+
+OUTCOME
+- It eliminates the need users to check for and sort important, relevant emails.
+- It flags those emails and extracts the email of the sender, and stores it in a Google Sheet, for any further evaluation
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
