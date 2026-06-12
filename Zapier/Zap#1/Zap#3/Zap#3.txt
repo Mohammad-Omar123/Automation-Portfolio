@@ -1,8 +1,0 @@
-ZAP#3
-
-DESCRIPTION
-Trigger: When a Google Form has a new response, the zap initiates
-
-Filter: If the response contains an email that ends with '@gmail.com', then continue forward
-
-Action: It sends a Gmail to the Google Form creator, providing the name and gmail of the respondent 
