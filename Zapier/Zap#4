@@ -1,1 +1,14 @@
 
+DESCRIPTION 
+
+Trigger: When a new Google Form is filled, the zap is initiated
+
+Paths
+
+Path A: If the country selected in the response is Comoros, continue on Path A
+    Action: Send an email to respondent, that we do not operate in Comoros
+
+Path B: If the country selected in the response is other than Comoros, continue on Path B
+    Action: Send an email to the respondent, that we are able to collaborate together
+
+
