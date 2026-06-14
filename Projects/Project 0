@@ -12,6 +12,9 @@ Actions
 On Time: Sends the employee an email confirming they arrived on time, using their name, date, and arrival time from the row.
 Late: Sends two messages — a Slack message to a supervisor reporting that the employee was late, and a separate email to the employee themselves notifying them of the same. Both are personalized with the row's data.
 
+Zap Screenshots:
+https://www.dropbox.com/t/mKfLITUBAYem5ahR
+
 
 
 
