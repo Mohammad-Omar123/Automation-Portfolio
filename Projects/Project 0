@@ -1,1 +1,18 @@
+Project: Punctuality Tracker Automation
+Tool: Zapier (multi-step Zap with conditional Paths)
+What it does: Watches a Google Sheet for new employee check-ins and automatically notifies the right people depending on whether the employee was on time or late.
+
+Trigger
+Fires when a new row is added to a Google Sheet. Each row has Name, Email, Date, and Arrival Time (24-hour format).
+Paths
+On Time: Arrival time is before or equal to 8:30.
+Late: Arrival time is after 8:30.
+The "equal to 8:30" condition was added on purpose — without it, an employee arriving at exactly 8:30 would fall into neither path and get no notification at all.
+Actions
+On Time: Sends the employee an email confirming they arrived on time, using their name, date, and arrival time from the row.
+Late: Sends two messages — a Slack message to a supervisor reporting that the employee was late, and a separate email to the employee themselves notifying them of the same. Both are personalized with the row's data.
+
+
+
+
 
