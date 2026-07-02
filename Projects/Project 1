@@ -24,3 +24,6 @@ Cold path: The lead is silently logged to the same Google Sheets database with c
 Key design decisions
 AI classification runs before the Path split, meaning the routing logic is judgment-based rather than rule-based — the workflow adapts to natural language rather than requiring structured input. 
 Each path receives a proportionally appropriate response, with the highest effort (personalized AI-written email plus instant notification) reserved for the highest-value leads.
+
+Project Images:
+https://mega.nz/folder/onNQULqS#aco08O26pdRiCsYdH0uzPw
