@@ -1,1 +1,109 @@
+# World Cup 2026 — AI Content Automation Engine
+
+A fully automated social media content pipeline built during the FIFA World Cup 2026. The system monitors live match data, generates AI-written content, renders branded graphics and short-form videos, and publishes everything to X and Instagram — with zero manual input from lineup announcement to post-match analysis.
+
+---
+
+## Project Video Demo
+
+*[Screenshot gallery link to be added here]*
+
+---
+
+## What It Does
+
+Every World Cup match day, this engine automatically:
+
+1. Detects upcoming fixtures and queues them for processing
+2. Posts a branded lineup graphic to X and Instagram 10 minutes before kickoff
+3. Posts an AI-written match analysis graphic and a tournament progression graphic 2 hours after kickoff
+4. Searches, filters, renders and publishes highlight clips as Instagram Reels 9 hours after kickoff
+
+All graphics carry a custom watermark. All captions are AI-generated. No human input required at any stage.
+
+---
+
+## Tools Used
+
+| Tool | Purpose |
+|---|---|
+| **Make.com** | Core automation platform hosting all 4 scenarios |
+| **Google Apps Script** | Cloud-based scheduler that monitors match timings and fires webhooks |
+| **Google Sheets** | Acts as the system database — stores match queue and status |
+| **Highlightly API** | Source for match fixtures and lineup data |
+| **Sport Highlights API (RapidAPI)** | Supplementary match and lineup data |
+| **YouTube** | Source for match highlight video clips |
+| **Groq (LLaMA 3.3 70B)** | AI caption and analysis generation |
+| **htmlcsstoimage** | Renders branded static graphics from HTML/CSS templates |
+| **Creatomate** | Renders short-form vertical videos with watermark overlays |
+| **Buffer** | Posts images and captions to X |
+| **Instagram Graph API** | Posts images and Reels directly to Instagram |
+
+---
+
+## System Architecture
+
+```
+00:00 UTC Daily
+    Scenario 1 — fetches today's WC fixtures → populates Match_Queue sheet
+
+Apps Script polls every 5 minutes:
+
+    T-10min     →  fires Lineup webhook      →  Scenario 2
+    T+2h        →  fires Post-Match webhook  →  Scenario 4
+    T+9h        →  fires Clip webhook        →  Scenario 3
+
+Status chain per match:
+    blank → Lineup_Sent → Analysis_Sent → Finished
+```
+
+The status column in Google Sheets is the single source of truth — each status value gates the next trigger, making double-firing impossible.
+
+---
+
+## Scenario Breakdown
+
+### Scenario 1 — Daily Fixture Fetcher
+Runs on a scheduled trigger at 00:00 UTC every day. Makes an HTTP request to the Highlightly API to fetch today's World Cup fixtures, iterates through each match, and adds a row to the Match_Queue Google Sheet containing the Match ID, Home Team, Away Team, and UTC kickoff date. Duplicate prevention ensures the same match is never added twice.
+
+### Scenario 2 — Lineup Post
+Triggered by Apps Script 10 minutes before kickoff. Fetches confirmed starting lineups using the match ID, extracts formations, player names, and team logos, builds HTML player lists dynamically using Make's map and split functions, generates a punchy lineup caption via Groq, renders a branded 1080x1080 lineup graphic using htmlcsstoimage with a deep green gradient background and custom watermark, and posts it simultaneously to X via Buffer and Instagram via the Graph API.
+
+### Scenario 4 — Post-Match Analysis
+Triggered by Apps Script 2 hours after kickoff. Fetches full match statistics including final score, goal scorers, and team logos, generates a 120-word match analysis via Groq, converts the analysis into a punchy social media caption, renders a branded analysis graphic using htmlcsstoimage with the scoreline, team flags, scorer names, and watermark, posts it to X and Instagram, then generates a separate tournament progression graphic showing which stage the winning team advances to next, and posts that as a second update.
+
+### Scenario 3 — Highlight Clip Engine
+Triggered by Apps Script 9 hours after kickoff. Searches YouTube for match highlight clips, applies a relevance filter to extract only clips whose titles match specific criteria, and renders each qualifying clip as a short-form 9:16 vertical video with watermark overlay using Creatomate. Typically produces 2–3 Reels per match depending on relevance. Each clip gets an AI-generated caption via Groq and is published directly to Instagram as a Reel.
+
+---
+
+## Logic Design
+
+**Webhook Chain**
+Apps Script acts as the conductor. It runs every 5 minutes on Google's servers, reads the Match_Queue sheet, checks each match's status and elapsed time, and fires the appropriate Make webhook. Make scenarios have no schedules of their own — they sit idle until a webhook arrives.
+
+**Duplicate Prevention**
+The status column in Google Sheets gates every trigger. Once a webhook fires and Apps Script writes a new status value, that condition can never be true again for the same match. The chain is strictly linear and irreversible.
+
+**Dynamic Content**
+No content is hardcoded. Team names, scores, formations, player lists, scorers, and stage information are all pulled from live APIs at runtime and injected into graphic templates and AI prompts dynamically.
+
+**AI Prompting**
+All Groq prompts are written with a consistent sports brand persona modelled on @433. System messages enforce tone, structure, and format. User messages inject live match data. Responses are parsed and split where multiple content types are needed in a single call.
+
+---
+
+## Posts Per Match
+
+| Post | Scenario | Platform | Timing |
+|---|---|---|---|
+| Lineup graphic | S2 | X + Instagram | T-10min |
+| Match analysis graphic | S4 | X + Instagram | T+2h |
+| Tournament progression graphic | S4 | X + Instagram | T+2h |
+| Highlight clips (2–3 Reels) | S3 | Instagram Reels | T+9h |
+
+**Total: 5–6 posts per match, fully automated**
+
+---
+
 
