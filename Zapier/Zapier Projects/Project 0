@@ -13,7 +13,7 @@ On Time: Sends the employee an email confirming they arrived on time, using thei
 Late: Sends two messages — a Slack message to a supervisor reporting that the employee was late, and a separate email to the employee themselves notifying them of the same. Both are personalized with the row's data.
 
 Project Images:
-https://mega.nz/folder/dqsFUSzZ#PyLKYcJwrHCpFLRx7QiK9Q
+ALL VIDEO/IMAGE DEMO LINKS ARE IN THE README.MD FILE
 
 
 
