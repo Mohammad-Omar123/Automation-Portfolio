@@ -1,0 +1,85 @@
+⚡ Autonomous Email Triage Engine
+An enterprise-grade, Human-in-the-Loop (HITL) automation system built to completely outsource frontline customer support and sales lead triage.
+
+Engineered with a decoupled, multi-scenario architecture in Make.com, this system acts as an intelligent gatekeeper for corporate inboxes. It leverages large language models (Groq / Llama 3.3) to read, classify, and draft responses to incoming emails, while routing high-urgency items to Slack for human review before execution.
+
+🚀 The Problem It Solves
+When a high-value enterprise lead fills out a contact form or a critical server goes down, organizations lose money for every minute they delay a response. However, fully autonomous AI email replies carry a massive brand-safety risk.
+
+This architecture solves both issues by achieving near-instant speed-to-lead data processing while maintaining strict human-in-the-loop oversight. AI drafts the perfect reply; a human clicks one button to approve and send it.
+
+🛠️ Tech Stack & Integrations
+Orchestration: Make.com (Advanced Multi-Scenario Architecture)
+
+AI / LLM: Groq API (Llama-3.3-70b-versatile)
+
+Communications: Slack API (Interactive Block Kit), Gmail API
+
+Data Handling: JSON Parsing, Custom Webhooks, Regex/String Splitting
+
+🧠 System Architecture & Modular Breakdown
+To bypass operational timeouts and API payload limits, this system does not run on a single linear track. It is structurally decoupled into two distinct asynchronous scenarios.
+
+Scenario 1: The Watcher & Classifier
+This scenario is responsible for ingestion, AI processing, and UI routing.
+
+Gmail (Watch Emails): Triggers instantly when a new email hits the monitored inbox.
+
+Groq (Create a Chat Completion): The email body is passed to the LLM with a strict system prompt to output a JSON object containing:
+
+urgency (High/Low)
+
+category (Sales, Support, General)
+
+summary (1-sentence overview)
+
+draft_reply (A context-aware response)
+
+JSON (Parse JSON): Strips the markdown syntax from the Groq output and converts the raw string into mappable data pills.
+
+Router: Directs the workflow based on the AI's urgency assessment.
+
+Route A (Low Urgency): Updates the Gmail label and silently archives/files the email.
+
+Route B (High Urgency): Fires an HTTP request to the Slack API (chat.postMessage) to generate an interactive Alert Card for the team.
+
+💡 The Payload Handoff Trick:
+Slack has strict character limits for interactive button values. To bridge the gap between Scenario 1 and Scenario 2, the "Approve & Send" button in Slack uses a piped format to pack multiple data points into a single string. It also utilizes escapeJSON() to ensure line breaks in the AI reply don't break the Slack Block Kit UI.
+
+Payload format: "value": "{{threadId}}|{{escapeJSON(draft_reply)}}"
+
+Scenario 2: The Executor
+This scenario lies dormant until a human interacts with the Slack alert.
+
+Webhooks (Custom Webhook): Listens for the incoming POST request triggered when a user clicks the "Approve & Send" button in Slack.
+
+Tools (Set Multiple Variables): Uses Make's split() function to crack open the button's payload value using the pipe | delimiter.
+
+Item 1 = The Gmail Thread ID
+
+Item 2 = The finalized AI Draft Text
+
+Gmail (Reply to an Email): Injects the extracted Draft Text directly into the extracted Thread ID, ensuring the email stays perfectly threaded with the original sender.
+
+HTTP (Make a Request): Sends a callback to the Slack API to update the original message block, removing the "Approve" button and replacing it with a green "✅ Sent (Approved)" badge so other team members know the ticket is handled.
+
+⚙️ Prerequisites & Setup
+To replicate this architecture, you will need:
+
+A Make.com account (Core or Pro plan recommended for webhooks).
+
+A Groq API Key (or OpenAI/Anthropic equivalent).
+
+A custom Slack App created in your workspace with Interactivity & Shortcuts enabled.
+
+The Request URL in your Slack App must be pointed directly to the webhook generated in Scenario 2.
+
+🛡️ Security & Best Practices
+Zero AI Hallucination Risk: Because the webhook isolates the send trigger, an LLM hallucination can never accidentally email a client.
+
+Escaped Variables: Always wrap the LLM output in escapeJSON() before injecting it into a Slack HTTP request to prevent unescaped newlines from destroying the POST body payload.
+
+
+
+
+ALL PROJECT IMAGES ARE LINKED IN README.MD FILE
