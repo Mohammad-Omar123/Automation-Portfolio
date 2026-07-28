@@ -1,0 +1,143 @@
+# Autonomous Revenue Operations Engine (AROE)
+
+An event-driven, multi-agent revenue operations platform built in n8n. AROE takes an inbound lead from raw form submission through qualification, research, scoring, deal creation, outreach, and meeting scheduling, entirely autonomously, with a human only ever involved to review a Hot lead's calendar invite.
+
+This isn't a single linear automation. It's a modular system of one orchestrator and several purpose-built child workflows, each doing one job well, coordinated through explicit data handoffs and a shared error-handling layer.
+
+Photo evidence and screenshots for this project are linked in README.md, not in this file.
+
+---
+
+## Table of Contents
+
+- [The Problem It Solves](#the-problem-it-solves)
+- [Architecture Overview](#architecture-overview)
+- [Workflow Breakdown](#workflow-breakdown)
+- [Tech Stack](#tech-stack)
+- [Key Engineering Decisions](#key-engineering-decisions)
+- [Setup](#setup)
+- [Future Improvements](#future-improvements)
+
+---
+
+## The Problem It Solves
+
+Most inbound lead-handling systems are held together by manual triage: someone checks a form submissions inbox, manually looks up the company, manually decides how urgent it is, manually creates a CRM record, and manually drafts a reply, often hours after the lead actually submitted the form. By the time that happens, speed-to-lead (one of the strongest predictors of conversion) is already lost.
+
+AROE removes every one of those manual steps without removing judgment from the process, an AI agent reads the actual inquiry and reasons about urgency and fit the way a human SDR would, rather than relying on rigid form dropdowns.
+
+---
+
+## Architecture Overview
+
+```
+Tally Form Submission
+        │
+        ▼
+ Revenue Orchestrator (parent workflow)
+        │
+        ├─▶ Contact Manager        (child workflow)
+        ├─▶ Company Manager        (child workflow)
+        ├─▶ AI Qualification Agent (child workflow)
+        ├─▶ Company Enrichment Agent (child workflow)
+        │
+        ├─▶ Lead Scoring        (inline)
+        ├─▶ Deal Manager        (inline)
+        │
+        ├─▶ Communication Agent (child workflow)
+        ├─▶ Meeting Scheduler   (child workflow)
+        └─▶ Analytics & Audit   (child workflow, called from every stage)
+
+ Error Trigger Workflow (standalone, referenced by every workflow's settings)
+        └─▶ Analytics & Audit + Slack alert on any failure
+```
+
+**Design principle:** workflows that are genuinely reusable or independently useful (identity resolution, communication, scheduling, logging) are separate child workflows, callable from anywhere. Workflows that are purely linear, single-purpose steps with no reuse case (scoring, deal creation) are consolidated inline into the orchestrator. This was a deliberate architectural decision made partway through the build, see [Key Engineering Decisions](#key-engineering-decisions).
+
+---
+
+## Workflow Breakdown
+
+### 1. Revenue Orchestrator (parent)
+Receives the Tally submission, validates the payload, and sequences every downstream call. Owns the full lead journey end to end and is the only workflow that knows the complete order of operations.
+
+### 2. Contact Manager
+Given a name, email, and company, checks HubSpot for an existing contact by email, updates it if found or creates it if not, then ensures the associated company record exists and is linked. Built as a reusable identity-resolution layer, any future intake channel (a different form, a WhatsApp lead, a CSV import) can call this same workflow without modification.
+
+### 3. Company Manager
+Same identity-resolution pattern as Contact Manager, applied to the Company object, matched by domain.
+
+### 4. AI Qualification Agent
+An LLM-backed agent (Groq, Llama 3.3 70B) reads the lead's free-text inquiry and returns a structured classification: requested services, urgency, a one-sentence intent summary, and a budget indicator. Every value is validated against a fixed allow-list before being written to HubSpot, since AI output, even when prompted for strict JSON, occasionally drifts in format.
+
+### 5. Company Enrichment Agent
+Given only a company name, this agent uses Tavily (a search API purpose-built for AI agents) to research the company live, then has an LLM synthesize the raw research into a structured profile: industry, estimated size, and a plain-English summary. Chosen specifically because traditional firmographic APIs (e.g. Clearbit) have discontinued their free tiers, this agent produces comparable enrichment at zero cost by researching directly rather than querying a paid data vendor.
+
+### 6. Lead Scoring (inline)
+A deterministic scoring function, not another AI call, combining urgency, budget signal, company size, and industry fit into a Hot / Warm / Cold verdict. Kept rule-based rather than AI-based deliberately, for consistent, explainable scoring.
+
+### 7. Deal Manager (inline)
+Creates a HubSpot deal at a pipeline stage matched to the lead's score, associates it with both the contact and company, and, for Hot leads specifically, creates and assigns a same-day follow-up task.
+
+### 8. Communication Agent
+Drafts a personalized follow-up email referencing the lead's actual stated need (not a generic template), sends it via Gmail, and posts a Slack alert to the team when a Hot lead has just been contacted.
+
+### 9. Meeting Scheduler
+For Hot leads only: checks real Google Calendar availability across the next five business days, books the first open 30-minute slot automatically, and advances the deal to the next pipeline stage.
+
+### 10. Analytics & Audit
+A shared logging workflow, called from every stage of the pipeline (and from the error handler below). Appends execution ID, workflow name, status, and a full JSON snapshot to a Google Sheet, giving a complete audit trail of every lead's journey through the system.
+
+### 11. Error Handling (standalone)
+A single `Error Trigger`-based workflow, referenced in every other workflow's settings. Any unhandled failure anywhere in the pipeline routes here automatically, gets logged to Analytics & Audit with a `failed` status, and triggers an immediate Slack alert, so a broken step surfaces in seconds, not when someone eventually notices a lead never got a reply.
+
+---
+
+## Tech Stack
+
+| Layer | Tool |
+|---|---|
+| Orchestration | n8n (self-hosted) |
+| AI / LLM | Groq (Llama 3.3 70B) |
+| CRM | HubSpot (Free tier) |
+| Company research | Tavily |
+| Lead intake | Tally |
+| Email | Gmail API |
+| Scheduling | Google Calendar API |
+| Notifications | Slack API |
+| Logging | Google Sheets |
+
+Every tool in this stack was deliberately selected to hold up at zero cost, this was built entirely on free tiers, with tool choices (e.g. Tavily over a paid firmographic API) made specifically to preserve that constraint without sacrificing capability.
+
+---
+
+## Key Engineering Decisions
+
+**HTTP and native API nodes don't carry your payload forward.** Every HTTP Request node (and several native nodes) in n8n return *only* their own API response, not whatever data flowed into them. Any workflow step that needs to read earlier context after an API call has to explicitly re-attach it, typically via a small Code node referencing an earlier node by name (`$('NodeName').item.json`). This turned out to be the single most common source of bugs during the build, and the fix pattern is now applied consistently everywhere it's needed.
+
+**Native node schema loading isn't always reliable.** HubSpot's native n8n node failed to load custom contact properties into its property picker, even after confirming the properties existed and all relevant API scopes (including schema-read scopes) were granted. The reliable workaround: direct `HTTP Request` nodes calling HubSpot's REST API with Bearer token authentication, bypassing the property picker entirely. The native node is still used for core record creation (Contact, Company, Deal), since that functionality worked correctly.
+
+**Consolidate where reuse doesn't exist.** The original architecture treated every logical step as its own child workflow. Partway through the build, Lead Scoring and Deal Manager were folded directly into the Orchestrator as inline nodes, since neither had any realistic reuse case outside this single pipeline, every added Execute Workflow boundary was pure overhead (another node-name reference to keep straight, another place for data to silently drop) with no architectural benefit. Communication Agent and Meeting Scheduler remained separate child workflows since the main canvas was becoming difficult to navigate at that scale. The result is a system that's modular where modularity earns its cost, and linear where it doesn't.
+
+**Free-tier constraints as a starting condition, not an afterthought.** HubSpot's free CRM caps custom properties at 10 per object, every property schema in this build was designed against that ceiling from the start. Company enrichment was re-architected around Tavily specifically because the originally planned data vendor no longer offers free access.
+
+---
+
+## Setup
+
+1. **HubSpot**, create a free account, set up custom properties on Contact/Company/Deal objects (see property tables in build documentation), create a Private App with `crm.objects.*` and `crm.schemas.*` read/write scopes across contacts, companies, and deals.
+2. **Tally**, build the lead intake form, connect via n8n's native Tally Trigger node (OAuth-based, no manual webhook URL needed).
+3. **Groq**, create a free API key.
+4. **Tavily**, create a free account and API key.
+5. **Google Cloud**, create an OAuth2 client for Gmail and Calendar APIs, add your account as a test user while the app is unpublished.
+6. **Slack**, create an app in a free workspace with `chat:write` scope.
+7. **Google Sheets**, create the Analytics & Audit log sheet with columns: `execution_id`, `workflow_name`, `status`, `timestamp`, `details`.
+8. Import each workflow into n8n, connect the credentials above, and set each workflow's Error Workflow (in Settings) to point at the Error Handling workflow.
+
+---
+
+## Future Improvements
+
+- Expand intake beyond Tally to additional channels (WhatsApp, direct email parsing) using the same reusable Contact/Company Manager layer
+- Move from a deterministic Lead Scoring function to a hybrid model incorporating engagement signals over time, not just first-touch data
+- Add a dedicated retry/backoff layer for transient API failures rather than routing every failure straight to the error handler
