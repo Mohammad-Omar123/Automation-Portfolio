@@ -1,5 +1,8 @@
 # Automation-Portfolio
 
+SEO Optimization Agent:
+https://mega.nz/folder/A3EVBKja#Bx-wVZqE7fRxUJY3YI3XYw
+
 Autonomous Revenue Operations Engine (AROE):
 https://mega.nz/folder/t6VygCDS#usXAF-8Tg9PYGYbw_hsjUg
 
