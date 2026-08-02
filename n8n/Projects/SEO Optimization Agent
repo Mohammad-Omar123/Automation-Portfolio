@@ -1,0 +1,128 @@
+SEO OPTIMIZATION AGENT
+
+// Project demo in Readme.md file //
+
+Overview
+This project is an automated n8n workflow that performs an end-to-end SEO audit on any target web page. It scrapes the page HTML, checks on-page SEO factors, 
+generates simulated Search Console metrics, runs technical performance checks through PageSpeed Insights, gathers top competitor content from search results, uses Llama 3.3 via Groq to create optimization recommendations, 
+saves the report to Airtable, and sends an email notification to request human approval before finalizing the update.
+
+---
+
+Node List (20 Nodes)
+1. Node Name: When clicking 'Execute workflow'
+Type: Trigger
+Purpose: Starts the workflow manually with test inputs.
+2. Node Name: Set Inputs
+Type: Set
+Purpose: Defines input variables such as targetUrl and targetKeyword.
+3. Node Name: HTTP Request
+Type: HTTP Request
+Purpose: Downloads the raw HTML source code of the target page.
+4. Node Name: HTML
+Type: HTML
+Purpose: Extracts HTML elements like title, meta description, headings, canonical link, and body text.
+5. Node Name: On Code Metrics
+Type: Code
+Purpose: Calculates word count, keyword density, header count, and content structure metrics.
+6. Node Name: Mock GSC Data
+Type: Code
+Purpose: Generates simulated Search Console metrics like clicks, impressions, position, and CTR based on page structure signals.
+7. Node Name: Code in JavaScript
+Type: Code
+Purpose: Formats and structures technical data before passing it down the pipeline.
+8. Node Name: PageSpeed Audit
+Type: HTTP Request
+Purpose: Queries the Google PageSpeed Insights API for technical performance and SEO health scores.
+9. Node Name: Parse PageSpeed
+Type: Code
+Purpose: Extracts Core Web Vitals (LCP, CLS, FID) and specific failing audits from the PageSpeed API payload.
+10. Node Name: Merge
+Type: Merge
+Purpose: Combines on-page metrics, simulated search data, and PageSpeed audit results into a single dataset.
+11. Node Name: Competitor Research
+Type: HTTP Request
+Purpose: Calls the Tavily API to search and retrieve top-ranking content for the target keyword.
+12. Node Name: Code in JavaScript1
+Type: Code
+Purpose: Prepares combined competitor and page data into a clean structure for the AI prompt.
+13. Node Name: Groq Chat Model
+Type: Language Model
+Purpose: Provides the Llama-3.3-70B model via Groq as the AI backend for analysis.
+14. Node Name: Generate SEO Plan
+Type: LLM Chain
+Purpose: Sends all aggregated audit data and prompt instructions to the AI model to build an optimization strategy.
+15. Node Name: Parse LLM Response
+Type: Code
+Purpose: Cleans the AI output, verifies JSON structure, and applies fallback defaults if parsing fails.
+16. Node Name: Merge1
+Type: Merge
+Purpose: Combines the structured AI recommendations with the original gathered data.
+17. Node Name: Log to Airtable
+Type: Airtable
+Purpose: Writes a new audit record into Airtable containing all collected metrics and AI suggestions.
+18. Node Name: Send a message
+Type: Gmail
+Purpose: Sends an email notification with an audit summary and an approval action link.
+19. Node Name: Wait
+Type: Wait
+Purpose: Pauses workflow execution until the email recipient clicks the approval link.
+20. Node Name: Update record
+Type: Airtable
+Purpose: Updates the audit record status in Airtable to Approved once approval is received.
+
+---
+
+Execution Steps
+Step 1: The workflow starts manually and receives input parameters (target URL and target keyword).
+Step 2: HTML is fetched from the URL and parsed to calculate on-page SEO metrics.
+Step 3: Simulated search console performance data is generated alongside real-time PageSpeed Insights data.
+Step 4: The Merge node combines all collected page and technical metrics together.
+Step 5: Competitor research is gathered via Tavily API and structured alongside the page data.
+Step 6: Groq Llama-3.3 processes the full dataset and creates actionable recommendations.
+Step 7: AI output is formatted, validated, and merged back with the original record data.
+Step 8: The workflow logs a complete record into Airtable.
+Step 9: An email is sent to stakeholders, and execution pauses at the Wait node.
+Step 10: Upon clicking the approval link, the workflow resumes and updates the record status in Airtable to Approved.
+
+---
+
+Tools and APIs
+* n8n: Workflow automation engine used to manage triggers, logic, and data flow.
+* Google PageSpeed Insights API: Free API used for performance and technical SEO metrics.
+* Tavily Search API: Web search API used to fetch high-ranking competitor content.
+* Groq (Llama-3.3-70B): High-speed AI model used for data analysis and generating structured SEO plans.
+* Airtable: Cloud database used to store audit records and keep track of approval statuses.
+* Gmail: Email service used for human-in-the-loop approval workflows.
+
+---
+
+Design Details
+Mock Search Console Data
+The official Google Search Console API requires verified domain ownership, which limits testing on arbitrary URLs. The Mock GSC Data node generates reactive estimates based on real page signals (keyword presence, word count, density). This 
+node can easily be replaced with a live Search Console API call when auditing owned domains.
+
+Human Approval Safety Gate
+To prevent automated updates or suggestions from being pushed without review, the workflow uses a Send a Message node followed by a Wait node. Execution stops until a team member manually reviews the email summary and clicks the approval link.
+
+Separation of Extraction and Logic
+Extraction and calculation tasks are divided into separate nodes (HTML, On Code Metrics, Parse PageSpeed). Keeping data extraction separate from calculation logic ensures that changes to HTML selectors or API structures do not break 
+downstream data processing or LLM prompting.
+
+---
+
+Setup Requirements
+* Active n8n instance (cloud or self-hosted)
+* Google Cloud Project with PageSpeed Insights API enabled and an API key
+* Tavily Search API key
+* Groq API key
+* Airtable base with an Audits table created
+* Connected Gmail account in n8n for sending approval emails
+
+---
+
+Potential Enhancements
+* Replace simulated search data with live Search Console API queries for verified domains.
+* Add a CMS node (such as WordPress) following approval to automatically publish optimizations.
+* Implement automated re-runs to track changes over time against historic Airtable records.
+* Replace the manual trigger with an n8n Form trigger for team self-service requests.
